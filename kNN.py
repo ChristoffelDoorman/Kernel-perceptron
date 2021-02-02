@@ -1,8 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
-from tqdm.notebook import tqdm
-
     
 class kNN:
     
@@ -44,19 +40,30 @@ class kNN:
 
     def predict(self, test_points, k):
         """
-        Predict function
+        Predict function using recursion in case of similar amount of NNs.
+        
+        Input:
+        test_points -- test points stored in (m,n)-array to classify
+        k -- number of nearest neighbours to concern (int)
+        
+        Returns array containing class-predictions of test_points
         """
+        
+        # finds the k-nearest neighbours and return their labels
         NNs_labels = self.get_kNN(test_points, k)
         
         predictions = []
         for this_dat, this_label in enumerate(NNs_labels):
             
+            # sort unique labels and count
             uniq_vals, counts = np.unique(this_label, return_counts=True)
             
+            # if testpoint is assigned to one classification, add classification to predictions list
             if np.count_nonzero(counts == counts.max()) == 1:
                 idx = np.argmax(counts)
                 predictions.append(uniq_vals[idx])
             
+            # if testpoint is assigned to multiple classes, decrease k and use recursion until one classification
             else:
                 temp_k = k - 1
                 this_pred = self.predict(np.array([test_points[this_dat]]), temp_k)
@@ -66,7 +73,9 @@ class kNN:
     
     
     def accuracy(self, test_points, labels):
-        """ Calculate the accuracy """
+        """ 
+        Calculate the accuracy 
+        """
         
         predictions = self.predict(test_points, self.k)
         
