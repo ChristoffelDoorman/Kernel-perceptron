@@ -46,6 +46,9 @@ def make_kernel_dict(data, kernel_func, param_set):
     return Kdict
                
 def draw_heatmap(mean_mtx, std_mtx):
+    """
+    Draw heatmap for confusion matrix
+    """
                
     # dimensions of confusion matrix
     dims = mean_mtx.shape
@@ -67,9 +70,7 @@ def draw_heatmap(mean_mtx, std_mtx):
     plt.yticks(np.arange(10), fontsize=16)
     
     plt.xlabel('Predicted label', fontsize=18)
-    plt.ylabel('True label', fontsize=18)
-    
-    
+    plt.ylabel('True label', fontsize=18)    
 
     # draw labels
     for (j,i), label in np.ndenumerate(labels):
@@ -78,6 +79,9 @@ def draw_heatmap(mean_mtx, std_mtx):
     
     
 def show_hardest_five(hardest_5_idx):
+    """
+    Show instances that are hardest to predict
+    """
     fig, ax = plt.subplots(1, 5, figsize=(15, 5))
     for idx, h in enumerate(hardest_5_idx):
         ax[idx].imshow(data[h,1:].reshape(16,16), cmap='gray', vmin=-1, vmax=1)
