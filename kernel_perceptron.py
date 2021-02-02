@@ -3,31 +3,44 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 from scipy.spatial.distance import cdist
-
-from tqdm.notebook import tqdm
-
 
 
 class Kernel_perceptron:
     
     def __init__(self, dataset, test_set, train_indices, test_indices, nclasses, kernel_mtx, kernel_param, classification_method='OvA'):
-            
+        """
+        Initialize perceptron with polynomial or Gaussian kernel, that uses a One-vs-All (OvA) or One-vs-One (OvO) classification method.
+        
+        -- Input --
+        dataset -- training data (LabelledDataset-class, see helper.py)
+        test_set -- test data (LabelledDataset-class)
+        train_indices -- Lookup indices training set for kernel matrix
+        test_indices -- Lookup indices test set for kernel matrix
+        nclasses -- number of classification classes
+        kernel_mtx -- pre-computed kernel matrix
+        classification_method -- 'OvA' or 'OvO' (One-vs-All or One-vs-One)
+        """
+        
+        # data
         self.dataset = dataset
         self.test_set = test_set
         self.nclasses = nclasses
         
+        # kernel
         self.kernel_mtx = kernel_mtx
         self.train_indices = np.transpose(train_indices.reshape(1,-1))
         self.test_indices = test_indices
         self.kernel_param = kernel_param
         
+        # classification
         self.classification_method = classification_method
 
+        # One-vs-All classification
         if self.classification_method == 'OvA':
             self.classifier = np.zeros((self.nclasses, self.dataset.size))
         
+        # One-vs-One classification
         elif self.classification_method == 'OvO':
             k = self.nclasses
             self.classifier = np.zeros((int(k*(k-1)/2), self.dataset.size))
@@ -46,6 +59,7 @@ class Kernel_perceptron:
         # compute kernel matrix
         K = self.kernel_mtx[self.train_indices, np.transpose(self.train_indices)]
         
+        # init values
         prev_train_error = float('inf')
         prev_test_error = float('inf')
         
@@ -55,9 +69,11 @@ class Kernel_perceptron:
             
             # online learning
             for data_idx, data_point in enumerate(self.dataset.data):
-                                
+
+                # compute confidence
                 confidence = np.dot(self.classifier, K[data_idx,:])
 
+                # One-vs-All classification
                 if self.classification_method == 'OvA':
                     for this_class in range(self.nclasses):
                         if confidence[this_class] > 0 and this_class != self.dataset.labels[data_idx]:
@@ -67,7 +83,8 @@ class Kernel_perceptron:
                         elif confidence[this_class] <= 0 and this_class == self.dataset.labels[data_idx]:
                             mistakes += 1
                             self.classifier[this_class, data_idx] += 1
-                            
+                
+                # One-vs-One classification                            
                 elif self.classification_method == 'OvO':
                     for class_idx, this_pair in enumerate(self.OvO_indices):
                         if this_pair[0] == self.dataset.labels[data_idx] and confidence[class_idx] <= 0:
@@ -78,7 +95,7 @@ class Kernel_perceptron:
                             mistakes += 1
                             self.classifier[class_idx, data_idx] -= 1
                             
-           
+            # compute train and test errors
             train_error = mistakes/self.dataset.size
             test_error = self.test_error()
             
@@ -101,6 +118,9 @@ class Kernel_perceptron:
         return train_error
                   
     def kernel_output(self, x1, x2):
+        """
+        Compute kernel matrix. Preferably this is done before initializing this class.
+        """
         
         if self.kernel_func == 'polynomial':
             return np.power(np.dot(x1, np.transpose(x2)), self.kernel_param)
@@ -114,12 +134,12 @@ class Kernel_perceptron:
 
         
     def predict(self, test_points):
+        """
+        Predict class of test_point
+        """
         
-        # compute kernel vector
-#         K = self.kernel_output(self.dataset.data, test_points)
-        
+        # lookup kernel from kernel matrix
         K = self.kernel_mtx[self.train_indices, np.transpose(self.test_indices)]
-
                 
         # predict confidences for every class
         confidence = np.dot(self.classifier, K)
@@ -132,33 +152,35 @@ class Kernel_perceptron:
         # if 1vs1
         elif self.classification_method == 'OvO':
             
+            # calculate all decisions
             confidence = np.transpose(confidence)
-            
             decisions = np.zeros(confidence.shape[0])
             
+            # loop through all confidences
             for this_dat in range(confidence.shape[0]):
                 
+                # initiate current confidence and OvO classifier
                 this_confidence = confidence[this_dat]
-                
                 OvO_classifier = np.zeros((self.nclasses, 1))
                 
+                # compare with other OvO calasifiers
                 for class_idx, OvO_index in enumerate(self.OvO_indices):
                     
+                    # classify
                     if this_confidence[class_idx] > 0:
                         OvO_classifier[OvO_index[0]] += 1
                     else:
                         OvO_classifier[OvO_index[1]] += 1
                         
+                 # maximize decision
                 decisions[this_dat] = np.argmax(OvO_classifier)
                 
-            return decisions
-        
-            
+            return decisions  
             
     
     def test_error(self):
         """
-
+        Calculate test error
         """     
         predictions = self.predict(self.test_set.data)
                 
@@ -169,7 +191,7 @@ class Kernel_perceptron:
     
     def confusion_matrix(self):
         """
-        
+        Generate a confusion matrix
         """
         # count frequency unique classes for normalization
         uniq_vals, counts = np.unique(self.test_set.labels, return_counts=True)
@@ -191,11 +213,15 @@ class Kernel_perceptron:
     
     
     def count_mistake_vec(self):
+        """
+        Count mistakes per data instance
+        """
         
         mistake_vec = np.zeros(self.kernel_mtx.shape[0])
         
         predictions = self.predict(self.test_set.data)
         
+        # loop through all predictions and count mistakes
         for idx, pred in enumerate(predictions):
             if pred != self.test_set.labels[idx]:
                 mistake_vec[self.test_indices[idx]] += 1
